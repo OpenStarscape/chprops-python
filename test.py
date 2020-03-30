@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright 2020 Athena Martin
+
 import asyncio
 import os
 from typing import Any
@@ -19,7 +22,7 @@ class TestServer(server.Server):
         running_servers.append(self)
 
 async def val_changed(object_id: int, property: str, value: Any):
-    print("1.value changed: " + value)
+    print("1.value changed: " + str(value))
 
 class TestClient(client.Client):
     async def unknown_mtype(self, **kwargs):
@@ -34,15 +37,16 @@ class TestClient(client.Client):
 async def run_server_test():
     await stream.server_inet(9573, TestServer, "chprops test script", "none")
 
-    await asyncio.sleep(5)
-    running_servers[0].objects[0].object_val["value"] = 7
-    await asyncio.sleep(5)
-    running_servers[0].objects[0].object_val["value"] = 8
+    await asyncio.sleep(1)
+    running_servers[0].objects[1].object_val["value"] = 7
+    await asyncio.sleep(1)
+    running_servers[0].objects[1].object_val["value"] = 8
+    await asyncio.sleep(1)
 
 async def run_client_test():
     await stream.connect_inet("localhost", 9573, TestClient)
 
-    await asyncio.sleep(15)
+    await asyncio.sleep(3)
 
 if os.fork() > 0:
     asyncio.run(run_server_test())
