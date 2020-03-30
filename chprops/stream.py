@@ -26,7 +26,7 @@ class StreamSession(common.SessionLayer):
             datagram = b""
             try:
                 datagram = datagram + await self.reader.readuntil()
-                self.application.receive(datagram)
+                await self.application.receive(datagram)
             except asyncio.IncompleteReadError as e:
                 datagram = datagram + e.partial
         # TODO: Don't leak self when the connection dies.
@@ -36,16 +36,16 @@ class StreamSession(common.SessionLayer):
         self.writer = writer
         super().__init__(*args, **kwargs)
 
-def connect_inet(host, port, *args, tls=False, tls_host=None, **kwargs):
+async def connect_inet(host, port, *args, tls=False, tls_host=None, **kwargs):
     """
     Connects as a client to the specified Internet server using TCP and (if tls set to True) TLS. If specified, tls_server_name is used for server name checks. All other arguments are passed through to the session and application layers.
     """
-    (reader, writer) = asyncio.open_connection(host, port, ssl=tls, server_hostname=tls_host)
+    (reader, writer) = await asyncio.open_connection(host, port, ssl=tls, server_hostname=tls_host)
     session = StreamSession(reader, writer, *args, **kwargs)
     asyncio.create_task(session.run())
     return session
 
-def server_inet(port, *args, **kwargs):
+async def server_inet(port, *args, **kwargs):
     """
     Runs an Internet server using TCP. A separate session and application layer are created for each client. All arguments are passed through to the session and application layers each time they are created.
     """
@@ -53,16 +53,16 @@ def server_inet(port, *args, **kwargs):
         await StreamSession(reader, writer, *args, **kwargs).run()
     asyncio.create_task(asyncio.start_server(launch, port=port)) # TODO: Support TLS.
 
-def connect_unix(path, *args, **kwargs):
+async def connect_unix(path, *args, **kwargs):
     """
     Connects as a client to the specified Unix-domain sockets path. All other arguments are passed through to the session and application layers.
     """
-    (reader, writer) = asyncio.open_unix_connection(path)
+    (reader, writer) = await asyncio.open_unix_connection(path)
     session = StreamSession(reader, writer, *args, **kwargs)
     asyncio.create_task(session.run())
     return session
 
-def server_unix(path, *args, **kwargs):
+async def server_unix(path, *args, **kwargs):
     """
     Runs a Unix-domain sockets server on the specified path. A separate session and application layer are created for each client. All arguments are passed through to the session and application layers each time they are created.
     """
