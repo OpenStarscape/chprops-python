@@ -131,9 +131,9 @@ class Client(common.ApplicationLayer):
     async def mtype_update(self, object: int, property: str, value):
         await self.objects[object].update(property, value)    
 
-    async def mtype_reply(self, token: int, status: str, **kwargs: dict):
+    async def mtype_reply(self, **kwargs: dict):
+        token = kwargs["token"]
         self.outstanding_replies[token].message = kwargs
-        self.outstanding_replies[token].message["status"] = status
         self.outstanding_replies[token].event.set()
 
     def __getitem__(self, key: int):
