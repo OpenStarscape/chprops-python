@@ -154,7 +154,7 @@ class Server(common.ApplicationLayer):
         except IndexError:
             await self.reply(token, "no such property")
 
-    async def mtype_subscribe(self, token: int, object: int, properties: List[str]):
+    async def mtype_subscribe(self, token: int, object: int, properties: List[str], **kwargs):
         if not object in self.objects:
             await self.reply(token, "no such object")
             return
