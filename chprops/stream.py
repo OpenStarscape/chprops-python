@@ -22,14 +22,15 @@ class StreamSession(common.SessionLayer):
         self.writer.write(bytes(datagram + "\n", "utf-8"))
 
     async def run(self):
+        datagram = b""
         while True:
-            datagram = b""
             try:
                 datagram = datagram + await self.reader.readuntil()
-                await self.application.receive(datagram)
+                asyncio.create_task(self.application.receive(datagram))
+                datagram = b""
             except asyncio.IncompleteReadError as e:
                 datagram = datagram + e.partial
-        # TODO: Don't leak self when the connection dies.
+        # TODO: Don't leak self (and spin CPU?) when the connection dies.
                 
     def __init__(self, reader, writer, *args, **kwargs):
         self.reader = reader
