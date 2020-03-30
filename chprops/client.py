@@ -39,7 +39,7 @@ class Object:
         Register each callback provided as the handler for a subscription to the property whose name is its key and inform the server.
         """
         properties = []
-        for property, callback in callbacks:
+        for property, callback in callbacks.items():
             self.subscriptions[property] = callback
         await self.client.subscribe(self.object_id, properties)
 
