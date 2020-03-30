@@ -22,7 +22,8 @@ class _ServerObjectMembership:
         self.server = server
         self.object_val = object_val
         self.object_id = object_id
-
+        self.subscriptions = []
+        
 class NotAllowed(Exception):
     pass
         
@@ -37,20 +38,22 @@ class Object:
 
     async def update_servers(self, property, value):
         """
-        Informs all containing servers that a property has been updated.
+        Inform all containing servers that a property has been updated.
         """
         for membership in self.servers:
             asyncio.create_task(membership.server.update(membership.object_id, property, value)) # Do these concurrently. We don't care about the results.
 
     def add_server(self, server, object_id):
         """
-        Adds a server to the object's list of containing servers. You should probably call the server's add_object() instead.
+        Add a server to the object's list of containing servers. You should probably call the server's add_object() instead.
         """
-        self.servers.append(_ServerObjectMembership(server, self, object_id))
+        membership = _ServerObjectMembership(server, self, object_id)
+        self.servers.append(membership)
+        return membership
 
     def remove_server(server):
         """
-        Removes a server from the object's list of containing servers. You should probably call the server's remove_object() instead.
+        Remove a server from the object's list of containing servers. You should probably call the server's remove_object() instead.
         """
         for membership in servers:
             if membership.server is server:
@@ -77,26 +80,32 @@ class Server(common.ApplicationLayer):
     server_name: str = None
     specialization_name: str = None
     
-    async def add_object(self, id: int, object: Object):
+    def add_object(self, id: int, object: Object):
         """
-        Adds an object to this server.
+        Add an object to this server.
         """
-        self.objects[id] = object # FIXME: This should be an _ServerObjectMembership
+        membership = object.add_server(self, id)
+        self.objects[id] = membership # FIXME: This should be an _ServerObjectMembership
         self.objects[0].object_val["objects"].append(id)
-        self.objects[0].object_val.update_servers("objects", self.objects[0]["objects"])
-        object.add_server(self)
+        asyncio.create_task(self.objects[0].object_val.update_servers("objects", self.objects[0].object_val["objects"]))
     
     async def receive(self, datagram: str):
         message: dict = json.loads(datagram)
-        func_name = "msg_" + message["mtype"]
-
-        if func_name in self.__dict__:
-            await self.__dict__["msg_" + message["mtype"]](**message)
-        else:
+        func_name = "mtype_" + message["mtype"]
+        
+        try:
+            func = getattr(self, func_name)
+        except AttributeError:
             await self.unknown_mtype(**message)
+            return
+        
+        await func(**message)
 
     async def update(self, object_id: int, property: str, value):
-        if property in objects[object_id].subscriptions:
+        """
+        Send an update message. You probably just want to set the property on the object and let its __setitem__() call this for you.
+        """
+        if property in self.objects[object_id].subscriptions:
             await self.session.send(json.dumps({
                 "mtype": "update",
                 "object": object_id,
@@ -105,6 +114,9 @@ class Server(common.ApplicationLayer):
             }))
 
     async def reply(self, token: int, status: str, **kwargs: dict):
+        """
+        Send a reply. Keyword arguments are included in the message.
+        """
         if token is None:
             return
         
@@ -114,12 +126,12 @@ class Server(common.ApplicationLayer):
             "status": status
         }
         
-        for k, v in kwargs:
+        for k, v in kwargs.items():
             message[k] = v
         
         await self.session.send(json.dumps(message))
 
-    async def mtype_set(self, token: int, object: int, property: str, value):
+    async def mtype_set(self, token: int, object: int, property: str, value, **kwargs):
         if not object in self.objects:
             await self.reply(token, "no such object")
             return
@@ -132,7 +144,7 @@ class Server(common.ApplicationLayer):
         except IndexError:
             await self.reply(token, "no such property")
 
-    async def mtype_get(self, token: int, object: int, property: str):
+    async def mtype_get(self, token: int, object: int, property: str, **kwargs):
         if not object in self.objects:
             await self.reply(token, "no such object")
             return
@@ -154,7 +166,7 @@ class Server(common.ApplicationLayer):
         
         await self.reply(token, "success")
 
-    async def mtype_unsubscribe(self, token: int, object: int, properties: List[str]):
+    async def mtype_unsubscribe(self, token: int, object: int, properties: List[str], **kwargs):
         if not object in self.objects:
             await self.reply(token, "no such object")
             return
@@ -169,10 +181,11 @@ class Server(common.ApplicationLayer):
         
     # TODO: remove_object()
 
-    def __init__(self, session, server_name, specialization_name):
+    def __init__(self, session: common.SessionLayer, server_name: str, specialization_name: str):
         super().__init__(session)
         self.server_name = server_name
         self.specialization_name = specialization_name
+        self.objects = {}
 
         universe = Object()
         universe["type"] = "universe"
