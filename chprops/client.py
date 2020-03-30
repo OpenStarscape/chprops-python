@@ -41,6 +41,7 @@ class Object:
         properties = []
         for property, callback in callbacks.items():
             self.subscriptions[property] = callback
+            properties.append(property)
         await self.client.subscribe(self.object_id, properties)
 
     async def unsubscribe(self, properties: List[str]):
@@ -95,7 +96,7 @@ class Client(common.ApplicationLayer):
     async def receive(self, datagram: str):
         message: dict = json.loads(datagram)
         func_name = "mtype_" + message["mtype"]
-
+        
         try:
             func = getattr(self, func_name)
         except AttributeError:
@@ -128,14 +129,9 @@ class Client(common.ApplicationLayer):
         # TODO: Handle errors.
 
     async def subscribe(self, object_id: int, properties: List[str]):
-        await self.session.send(json.dumps({
-            "mtype": "subscribe",
-            "token": None,
-            "object": object_id,
-            "properties": properties
-        }))
+        asyncio.create_task(self.request(mtype="subscribe", object=object_id, properties=properties))
     
-    async def mtype_update(self, object: int, property: str, value):
+    async def mtype_update(self, object: int, property: str, value, **kwargs):
         await self.objects[object].update(property, value)    
 
     async def mtype_reply(self, **kwargs: dict):
