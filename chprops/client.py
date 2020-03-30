@@ -76,6 +76,13 @@ class PendingRequest():
         self.event = asyncio.Event()
 
 class Client(common.ApplicationLayer):
+    """
+    The client-side application-layer code. Invoked by the SessionLayer when messages are received, and invokes it in return to send them back.
+    
+    Your client should subclass this to implement additional messages (async def mtype_<mtype value>(**kwargs)) and probably to actually do something. You can send a request and wait for a reply with the request() method.
+
+    Can be indexed to access objects.
+    """
     objects: Mapping[int, Object] = None
     outstanding_replies: Mapping[int, asyncio.Event] = None
     next_token = 1
