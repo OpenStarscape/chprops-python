@@ -29,7 +29,7 @@ class TestClient(client.Client):
         print(f"Server identified as {server}, specialization {specialization}.")
         print("0.objects:", await self[0]["objects"])
         print("1.value:", await self[1]["value"])
-        await self[1].subscribe(val_changed)
+        await self[1].subscribe({"value": val_changed})
 
 async def run_server_test():
     await stream.server_inet(9573, TestServer, "chprops test script", "none")
