@@ -24,13 +24,14 @@ class StreamSession(common.SessionLayer):
     async def run(self):
         datagram = b""
         while True:
+            if self.reader.at_eof():
+                return
             try:
                 datagram = datagram + await self.reader.readuntil()
                 asyncio.create_task(self.application.receive(datagram))
                 datagram = b""
             except asyncio.IncompleteReadError as e:
                 datagram = datagram + e.partial
-        # TODO: Don't leak self (and spin CPU?) when the connection dies.
                 
     def __init__(self, reader, writer, *args, **kwargs):
         self.reader = reader
